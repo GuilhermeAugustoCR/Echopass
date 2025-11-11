@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Tempo de geração: 10/09/2025 às 15:15
--- Versão do servidor: 10.4.32-MariaDB
--- Versão do PHP: 8.2.12
+-- Generation Time: Nov 11, 2025 at 08:00 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -18,61 +18,30 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Banco de dados: `echopass_db`
+-- Database: `echopass_db`
 --
 
 DELIMITER $$
 --
--- Procedimentos
+-- Procedures
 --
-CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_lembretes_de_agenda` ()   BEGIN
-    -- Lembrete 7 dias antes do evento
-    INSERT INTO Lembrete (ID_Solicitacao, email, titulo, descricao, propriedade)
-    SELECT 
-        s.ID_Solicitacao,
-        s.email_cliente,
-        'Lembrete Evento',
-        CONCAT('Faltam 7 dias para o evento "', c.nome_evento, '" que ocorrerá em ', DATE_FORMAT(c.data_evento, '%d/%m/%Y'), ' às ', TIME_FORMAT(c.hora_evento, '%H:%i')),
-        'Lembrete 7 dias antes'
-    FROM Solicitacao s
-    JOIN Convite c ON s.ID_Convite = c.ID_Convite
-    WHERE c.data_evento = DATE_ADD(CURDATE(), INTERVAL 7 DAY);
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_aprovar_solicitacao` (IN `p_id_solicitacao` INT)   BEGIN
+    UPDATE Solicitacao 
+    SET status = 'aprovada' 
+    WHERE ID_Solicitacao = p_id_solicitacao AND status = 'pendente';
     
-    -- Lembrete 3 dias antes do evento
-    INSERT INTO Lembrete (ID_Solicitacao, email, titulo, descricao, propriedade)
-    SELECT 
-        s.ID_Solicitacao,
-        s.email_cliente,
-        'Lembrete Evento',
-        CONCAT('Faltam 3 dias para o evento "', c.nome_evento, '" que ocorrerá em ', DATE_FORMAT(c.data_evento, '%d/%m/%Y'), ' às ', TIME_FORMAT(c.hora_evento, '%H:%i')),
-        'Lembrete 3 dias antes'
-    FROM Solicitacao s
-    JOIN Convite c ON s.ID_Convite = c.ID_Convite
-    WHERE c.data_evento = DATE_ADD(CURDATE(), INTERVAL 3 DAY);
+    IF ROW_COUNT() > 0 THEN
+        SELECT 'Solicitação aprovada com sucesso' as mensagem;
+    ELSE
+        SELECT 'Solicitação não encontrada ou já processada' as mensagem;
+    END IF;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `sp_criar_convite` (IN `p_id_mod` INT, IN `p_nome_evento` VARCHAR(100), IN `p_cep` CHAR(8), IN `p_descricao` VARCHAR(1000), IN `p_data_evento` DATE, IN `p_hora_evento` TIME, IN `p_num_max` INT, IN `p_faq` TEXT)   BEGIN
+    INSERT INTO Convite (ID_Mod, nome_evento, cep, descricao, data_evento, hora_evento, num_max, faq)
+    VALUES (p_id_mod, p_nome_evento, p_cep, p_descricao, p_data_evento, p_hora_evento, p_num_max, p_faq);
     
-    -- Lembrete 1 dia antes do evento
-    INSERT INTO Lembrete (ID_Solicitacao, email, titulo, descricao, propriedade)
-    SELECT 
-        s.ID_Solicitacao,
-        s.email_cliente,
-        'Lembrete Evento',
-        CONCAT('Falta 1 dia para o evento "', c.nome_evento, '" que ocorrerá amanhã (', DATE_FORMAT(c.data_evento, '%d/%m/%Y'), ') às ', TIME_FORMAT(c.hora_evento, '%H:%i'), '!'),
-        'Lembrete 1 dia antes'
-    FROM Solicitacao s
-    JOIN Convite c ON s.ID_Convite = c.ID_Convite
-    WHERE c.data_evento = DATE_ADD(CURDATE(), INTERVAL 1 DAY);
-    
-    -- Lembrete no dia do evento
-    INSERT INTO Lembrete (ID_Solicitacao, email, titulo, descricao, propriedade)
-    SELECT 
-        s.ID_Solicitacao,
-        s.email_cliente,
-        'Evento Hoje!',
-        CONCAT('O evento "', c.nome_evento, '" ocorre hoje às ', TIME_FORMAT(c.hora_evento, '%H:%i'), '! Não se atrase!'),
-        'Lembrete dia do evento'
-    FROM Solicitacao s
-    JOIN Convite c ON s.ID_Convite = c.ID_Convite
-    WHERE c.data_evento = CURDATE();
+    SELECT LAST_INSERT_ID() as novo_convite_id;
 END$$
 
 DELIMITER ;
@@ -80,267 +49,321 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `admin_convite`
+-- Table structure for table `admin_convite`
 --
 
 CREATE TABLE `admin_convite` (
-  `ID_convite` int(11) DEFAULT NULL,
+  `ID_admin_convite` int(11) NOT NULL,
+  `ID_convite` int(11) NOT NULL,
   `ID_solicitacoes` int(11) DEFAULT NULL,
-  `ID_questionario` int(11) DEFAULT NULL
+  `ID_questionario` int(11) DEFAULT NULL,
+  `data_associacao` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `convite`
+-- Table structure for table `convite`
 --
 
 CREATE TABLE `convite` (
   `ID_Convite` int(11) NOT NULL,
-  `ID_Mod` int(11) DEFAULT NULL,
-  `nome_evento` varchar(50) NOT NULL,
-  `cep` varchar(8) NOT NULL,
-  `conv_data_cria` date NOT NULL,
-  `descricao` text DEFAULT NULL,
+  `ID_Mod` int(11) NOT NULL,
+  `nome_evento` varchar(100) NOT NULL,
+  `cep` char(8) NOT NULL,
+  `conv_data_cria` datetime DEFAULT current_timestamp(),
+  `descricao` varchar(1000) DEFAULT NULL,
   `data_evento` date NOT NULL,
   `hora_evento` time NOT NULL,
-  `num_max` int(11) DEFAULT NULL,
-  `faq` text DEFAULT NULL
+  `num_max` int(11) NOT NULL,
+  `faq` text DEFAULT NULL,
+  `status` enum('ativo','inativo','cancelado','finalizado') DEFAULT 'ativo'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Acionadores `convite`
---
-DELIMITER $$
-CREATE TRIGGER `trg_autogerar_token` AFTER INSERT ON `convite` FOR EACH ROW BEGIN
-    INSERT INTO Token (ID_Convite, token_link, token_desc)
-    VALUES (NEW.ID_Convite, 
-            CONCAT('https://echopass.com/invite/', UUID_SHORT()),
-            CONCAT('Token do evento: ', NEW.nome_evento));
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_validar_data_evento` BEFORE INSERT ON `convite` FOR EACH ROW BEGIN
-    IF NEW.data_evento < CURDATE() THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'A Data do Evento não pode estar no passado.';
-    END IF;
-END
-$$
-DELIMITER ;
 
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `lembrete`
+-- Table structure for table `lembrete`
 --
 
 CREATE TABLE `lembrete` (
   `ID_Lembrete` int(11) NOT NULL,
-  `ID_Solicitacao` int(11) DEFAULT NULL,
-  `email` char(50) DEFAULT NULL,
-  `titulo` char(10) DEFAULT NULL,
+  `ID_Solicitacao` int(11) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `titulo` varchar(100) NOT NULL,
   `descricao` text DEFAULT NULL,
-  `propriedade` text DEFAULT NULL
+  `propriedade` text DEFAULT NULL,
+  `data_envio` datetime DEFAULT current_timestamp(),
+  `status` enum('pendente','enviado','falha') DEFAULT 'pendente'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `mod_evento`
+-- Table structure for table `mod_evento`
 --
 
 CREATE TABLE `mod_evento` (
   `ID_Mod` int(11) NOT NULL,
-  `nome` varchar(50) NOT NULL,
-  `email` varchar(50) NOT NULL,
+  `nome` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `senha` varchar(255) NOT NULL,
   `cnpj` varchar(14) NOT NULL,
-  `telefone` varchar(11) DEFAULT NULL
+  `telefone` varchar(15) DEFAULT NULL,
+  `data_cadastro` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `questionario`
+-- Table structure for table `questionario`
 --
 
 CREATE TABLE `questionario` (
   `ID_Questionario` int(11) NOT NULL,
-  `ID_Convite` int(11) DEFAULT NULL,
-  `titulo` char(50) DEFAULT NULL,
-  `descricao` text DEFAULT NULL
+  `ID_Convite` int(11) NOT NULL,
+  `titulo` varchar(100) NOT NULL,
+  `descricao` text DEFAULT NULL,
+  `data_criacao` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `solicitacao`
+-- Table structure for table `solicitacao`
 --
 
 CREATE TABLE `solicitacao` (
   `ID_Solicitacao` int(11) NOT NULL,
-  `ID_Convite` int(11) DEFAULT NULL,
+  `ID_Convite` int(11) NOT NULL,
   `ID_Token` int(11) DEFAULT NULL,
+  `nome_cliente` varchar(100) NOT NULL,
   `cpf_cliente` char(11) NOT NULL,
-  `email_cliente` char(50) NOT NULL,
-  `data_nasc` date NOT NULL,
+  `email_cliente` varchar(100) NOT NULL,
+  `data_nasc` date DEFAULT NULL,
   `num_polt` int(11) DEFAULT NULL,
   `data_desejada` date DEFAULT NULL,
   `hora_desejada` time DEFAULT NULL,
-  `data_de_envio_soli` datetime DEFAULT NULL
+  `data_envio_solicitacao` datetime DEFAULT current_timestamp(),
+  `status` enum('pendente','aprovada','rejeitada','cancelada') DEFAULT 'pendente',
+  `observacoes` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Acionadores `solicitacao`
---
-DELIMITER $$
-CREATE TRIGGER `trg_previnir_overbooking` BEFORE INSERT ON `solicitacao` FOR EACH ROW BEGIN
-    DECLARE current_count INT;
-    DECLARE max_capacity INT;
-    
-    -- Conta apenas solicitações ativas (se houver campo de status)
-    SELECT COUNT(*) INTO current_count 
-    FROM Solicitacao 
-    WHERE ID_Convite = NEW.ID_Convite;
-    
-    -- Obtém a capacidade máxima do evento
-    SELECT num_max INTO max_capacity 
-    FROM Convite 
-    WHERE ID_Convite = NEW.ID_Convite;
-    
-    -- Verifica se já atingiu ou ultrapassou a capacidade
-    IF current_count >= max_capacity THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Evento já atingiu a capacidade máxima!';
-    END IF;
-END
-$$
-DELIMITER ;
 
 -- --------------------------------------------------------
 
 --
--- Estrutura para tabela `token`
+-- Table structure for table `token`
 --
 
 CREATE TABLE `token` (
   `ID_Token` int(11) NOT NULL,
-  `ID_Convite` int(11) DEFAULT NULL,
-  `token_link` char(50) DEFAULT NULL,
-  `token_desc` char(50) DEFAULT NULL
+  `ID_Convite` int(11) NOT NULL,
+  `token_link` varchar(100) NOT NULL,
+  `token_desc` varchar(100) DEFAULT NULL,
+  `status` enum('ativo','inativo','utilizado','expirado') DEFAULT 'ativo',
+  `data_criacao` datetime DEFAULT current_timestamp(),
+  `data_expiracao` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Índices para tabelas despejadas
+-- Stand-in structure for view `vw_convites_ativos`
+-- (See below for the actual view)
+--
+CREATE TABLE `vw_convites_ativos` (
+`ID_Convite` int(11)
+,`nome_evento` varchar(100)
+,`moderador` varchar(100)
+,`data_evento` date
+,`hora_evento` time
+,`status` enum('ativo','inativo','cancelado','finalizado')
+,`total_solicitacoes` bigint(21)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `vw_solicitacoes_pendentes`
+-- (See below for the actual view)
+--
+CREATE TABLE `vw_solicitacoes_pendentes` (
+`ID_Solicitacao` int(11)
+,`nome_cliente` varchar(100)
+,`nome_evento` varchar(100)
+,`cpf_cliente` char(11)
+,`email_cliente` varchar(100)
+,`data_envio_solicitacao` datetime
+,`status` enum('pendente','aprovada','rejeitada','cancelada')
+);
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `vw_convites_ativos`
+--
+DROP TABLE IF EXISTS `vw_convites_ativos`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vw_convites_ativos`  AS SELECT `c`.`ID_Convite` AS `ID_Convite`, `c`.`nome_evento` AS `nome_evento`, `m`.`nome` AS `moderador`, `c`.`data_evento` AS `data_evento`, `c`.`hora_evento` AS `hora_evento`, `c`.`status` AS `status`, count(`s`.`ID_Solicitacao`) AS `total_solicitacoes` FROM ((`convite` `c` join `mod_evento` `m` on(`c`.`ID_Mod` = `m`.`ID_Mod`)) left join `solicitacao` `s` on(`c`.`ID_Convite` = `s`.`ID_Convite`)) WHERE `c`.`status` = 'ativo' GROUP BY `c`.`ID_Convite` ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `vw_solicitacoes_pendentes`
+--
+DROP TABLE IF EXISTS `vw_solicitacoes_pendentes`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `vw_solicitacoes_pendentes`  AS SELECT `s`.`ID_Solicitacao` AS `ID_Solicitacao`, `s`.`nome_cliente` AS `nome_cliente`, `c`.`nome_evento` AS `nome_evento`, `s`.`cpf_cliente` AS `cpf_cliente`, `s`.`email_cliente` AS `email_cliente`, `s`.`data_envio_solicitacao` AS `data_envio_solicitacao`, `s`.`status` AS `status` FROM (`solicitacao` `s` join `convite` `c` on(`s`.`ID_Convite` = `c`.`ID_Convite`)) WHERE `s`.`status` = 'pendente' ;
+
+--
+-- Indexes for dumped tables
 --
 
 --
--- Índices de tabela `admin_convite`
+-- Indexes for table `admin_convite`
 --
 ALTER TABLE `admin_convite`
+  ADD PRIMARY KEY (`ID_admin_convite`),
   ADD KEY `ID_convite` (`ID_convite`),
-  ADD KEY `ID_solicitacoes` (`ID_solicitacoes`),
   ADD KEY `ID_questionario` (`ID_questionario`);
 
 --
--- Índices de tabela `convite`
+-- Indexes for table `convite`
 --
 ALTER TABLE `convite`
   ADD PRIMARY KEY (`ID_Convite`),
-  ADD UNIQUE KEY `ID_Convite` (`ID_Convite`),
-  ADD KEY `ID_Mod` (`ID_Mod`);
+  ADD KEY `idx_convite_mod` (`ID_Mod`),
+  ADD KEY `idx_convite_status` (`status`);
 
 --
--- Índices de tabela `lembrete`
+-- Indexes for table `lembrete`
 --
 ALTER TABLE `lembrete`
   ADD PRIMARY KEY (`ID_Lembrete`),
-  ADD UNIQUE KEY `ID_Lembrete` (`ID_Lembrete`),
-  ADD KEY `ID_Solicitacao` (`ID_Solicitacao`);
+  ADD KEY `idx_lembrete_solicitacao` (`ID_Solicitacao`);
 
 --
--- Índices de tabela `mod_evento`
+-- Indexes for table `mod_evento`
 --
 ALTER TABLE `mod_evento`
   ADD PRIMARY KEY (`ID_Mod`),
-  ADD UNIQUE KEY `ID_Mod` (`ID_Mod`);
+  ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `cnpj` (`cnpj`);
 
 --
--- Índices de tabela `questionario`
+-- Indexes for table `questionario`
 --
 ALTER TABLE `questionario`
   ADD PRIMARY KEY (`ID_Questionario`),
-  ADD UNIQUE KEY `ID_Questionario` (`ID_Questionario`),
-  ADD KEY `ID_Convite` (`ID_Convite`);
+  ADD KEY `idx_questionario_convite` (`ID_Convite`);
 
 --
--- Índices de tabela `solicitacao`
+-- Indexes for table `solicitacao`
 --
 ALTER TABLE `solicitacao`
   ADD PRIMARY KEY (`ID_Solicitacao`),
-  ADD UNIQUE KEY `ID_Solicitacao` (`ID_Solicitacao`),
-  ADD KEY `ID_Convite` (`ID_Convite`),
-  ADD KEY `ID_Token` (`ID_Token`);
+  ADD KEY `idx_solicitacao_convite` (`ID_Convite`),
+  ADD KEY `idx_solicitacao_token` (`ID_Token`),
+  ADD KEY `idx_solicitacao_cpf` (`cpf_cliente`),
+  ADD KEY `idx_solicitacao_status` (`status`),
+  ADD KEY `idx_solicitacao_nome` (`nome_cliente`);
 
 --
--- Índices de tabela `token`
+-- Indexes for table `token`
 --
 ALTER TABLE `token`
   ADD PRIMARY KEY (`ID_Token`),
-  ADD UNIQUE KEY `ID_Token` (`ID_Token`),
-  ADD KEY `ID_Convite` (`ID_Convite`);
+  ADD UNIQUE KEY `token_link` (`token_link`),
+  ADD KEY `idx_token_convite` (`ID_Convite`),
+  ADD KEY `idx_token_status` (`status`);
 
 --
--- Restrições para tabelas despejadas
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- Restrições para tabelas `admin_convite`
+-- AUTO_INCREMENT for table `admin_convite`
 --
 ALTER TABLE `admin_convite`
-  ADD CONSTRAINT `admin_convite_ibfk_1` FOREIGN KEY (`ID_convite`) REFERENCES `convite` (`ID_Convite`),
-  ADD CONSTRAINT `admin_convite_ibfk_2` FOREIGN KEY (`ID_solicitacoes`) REFERENCES `solicitacao` (`ID_Solicitacao`),
-  ADD CONSTRAINT `admin_convite_ibfk_3` FOREIGN KEY (`ID_questionario`) REFERENCES `questionario` (`ID_Questionario`);
+  MODIFY `ID_admin_convite` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- Restrições para tabelas `convite`
+-- AUTO_INCREMENT for table `convite`
 --
 ALTER TABLE `convite`
-  ADD CONSTRAINT `convite_ibfk_1` FOREIGN KEY (`ID_Mod`) REFERENCES `mod_evento` (`ID_Mod`);
+  MODIFY `ID_Convite` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- Restrições para tabelas `lembrete`
+-- AUTO_INCREMENT for table `lembrete`
 --
 ALTER TABLE `lembrete`
-  ADD CONSTRAINT `lembrete_ibfk_1` FOREIGN KEY (`ID_Solicitacao`) REFERENCES `solicitacao` (`ID_Solicitacao`);
+  MODIFY `ID_Lembrete` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- Restrições para tabelas `questionario`
+-- AUTO_INCREMENT for table `mod_evento`
+--
+ALTER TABLE `mod_evento`
+  MODIFY `ID_Mod` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `questionario`
 --
 ALTER TABLE `questionario`
-  ADD CONSTRAINT `questionario_ibfk_1` FOREIGN KEY (`ID_Convite`) REFERENCES `convite` (`ID_Convite`);
+  MODIFY `ID_Questionario` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- Restrições para tabelas `solicitacao`
+-- AUTO_INCREMENT for table `solicitacao`
 --
 ALTER TABLE `solicitacao`
-  ADD CONSTRAINT `solicitacao_ibfk_1` FOREIGN KEY (`ID_Convite`) REFERENCES `convite` (`ID_Convite`),
-  ADD CONSTRAINT `solicitacao_ibfk_2` FOREIGN KEY (`ID_Token`) REFERENCES `token` (`ID_Token`);
+  MODIFY `ID_Solicitacao` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
--- Restrições para tabelas `token`
+-- AUTO_INCREMENT for table `token`
 --
 ALTER TABLE `token`
-  ADD CONSTRAINT `token_ibfk_1` FOREIGN KEY (`ID_Convite`) REFERENCES `convite` (`ID_Convite`);
+  MODIFY `ID_Token` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
-DELIMITER $$
 --
--- Eventos
+-- Constraints for dumped tables
 --
-CREATE DEFINER=`root`@`localhost` EVENT `ev_envio_lembretes_diario` ON SCHEDULE EVERY 1 DAY STARTS '2025-09-10 08:00:00' ON COMPLETION NOT PRESERVE ENABLE DO CALL sp_lembretes_de_agenda()$$
 
-DELIMITER ;
+--
+-- Constraints for table `admin_convite`
+--
+ALTER TABLE `admin_convite`
+  ADD CONSTRAINT `admin_convite_ibfk_1` FOREIGN KEY (`ID_convite`) REFERENCES `convite` (`ID_Convite`) ON DELETE CASCADE,
+  ADD CONSTRAINT `admin_convite_ibfk_2` FOREIGN KEY (`ID_questionario`) REFERENCES `questionario` (`ID_Questionario`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `convite`
+--
+ALTER TABLE `convite`
+  ADD CONSTRAINT `convite_ibfk_1` FOREIGN KEY (`ID_Mod`) REFERENCES `mod_evento` (`ID_Mod`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `lembrete`
+--
+ALTER TABLE `lembrete`
+  ADD CONSTRAINT `lembrete_ibfk_1` FOREIGN KEY (`ID_Solicitacao`) REFERENCES `solicitacao` (`ID_Solicitacao`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `questionario`
+--
+ALTER TABLE `questionario`
+  ADD CONSTRAINT `questionario_ibfk_1` FOREIGN KEY (`ID_Convite`) REFERENCES `convite` (`ID_Convite`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `solicitacao`
+--
+ALTER TABLE `solicitacao`
+  ADD CONSTRAINT `solicitacao_ibfk_1` FOREIGN KEY (`ID_Convite`) REFERENCES `convite` (`ID_Convite`) ON DELETE CASCADE,
+  ADD CONSTRAINT `solicitacao_ibfk_2` FOREIGN KEY (`ID_Token`) REFERENCES `token` (`ID_Token`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `token`
+--
+ALTER TABLE `token`
+  ADD CONSTRAINT `token_ibfk_1` FOREIGN KEY (`ID_Convite`) REFERENCES `convite` (`ID_Convite`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

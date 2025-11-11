@@ -188,8 +188,7 @@ try {
 <body>
     <div class="container">
         <div class="nav">
-            <a href="convite.php">Gerenciar Convites</a>
-            <a href="admin_convite.php">Painel Geral</a>
+            <span>Gerenciar Convites</span>
             <span style="float: right;">Olá, <?php echo htmlspecialchars($_SESSION['mod_nome']); ?> | <a href="mod_evento.php?logout=true">Sair</a></span>
         </div>
         

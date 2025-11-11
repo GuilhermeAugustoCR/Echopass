@@ -152,7 +152,7 @@ $token = $token_stmt->fetch(PDO::FETCH_ASSOC);
         .nav { background: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .nav a { margin-right: 20px; text-decoration: none; color: #007bff; font-weight: 500; }
         .nav a:hover { text-decoration: underline; }
-        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
         .section { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-height: 300px; }
         .section-full { grid-column: 1 / -1; }
         .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px; }
@@ -274,12 +274,6 @@ $token = $token_stmt->fetch(PDO::FETCH_ASSOC);
         
         @media (max-width: 1200px) {
             .dashboard {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard {
                 grid-template-columns: 1fr;
             }
         }
@@ -289,7 +283,6 @@ $token = $token_stmt->fetch(PDO::FETCH_ASSOC);
     <div class="container">
         <div class="nav">
             <a href="convite.php">← Voltar para Convites</a>
-            <a href="admin_convite.php">Painel Geral</a>
             <span style="float: right;">
                 Olá, <?php echo htmlspecialchars($_SESSION['mod_nome']); ?> | 
                 <a href="mod_evento.php?logout=true" style="color: #007bff;">Sair</a>
@@ -346,7 +339,7 @@ $token = $token_stmt->fetch(PDO::FETCH_ASSOC);
             <?php endif; ?>
         </div>
 
-        <!-- Dashboard com 3 seções -->
+        <!-- Dashboard com 2 seções -->
         <div class="dashboard">
             
             <!-- SEÇÃO 1: Informações do Convite -->
@@ -437,44 +430,7 @@ $token = $token_stmt->fetch(PDO::FETCH_ASSOC);
                 </div>
             </div>
 
-            <!-- SEÇÃO 3: Ações Rápidas -->
-            <div class="section">
-                <h2>⚡ Ações Rápidas</h2>
-                
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <?php if ($token): ?>
-                        <a href="solicitation.php?token=<?php echo urlencode($token['token_link']); ?>" target="_blank" class="btn-success" style="text-align: center;">
-                            👀 Visualizar Página de Inscrição
-                        </a>
-                        
-                        <button onclick="copyToClipboard('<?php echo $token['token_link']; ?>')" class="btn-info">
-                            📋 Copiar Link de Inscrição
-                        </button>
-                    <?php else: ?>
-                        <button class="btn-secondary" disabled>
-                            👀 Visualizar Página de Inscrição
-                        </button>
-                        
-                        <button class="btn-secondary" disabled>
-                            📋 Copiar Link de Inscrição
-                        </button>
-                    <?php endif; ?>
-                    
-                    <a href="convite.php" class="btn-warning" style="text-align: center;">
-                        📝 Gerenciar Todos os Convites
-                    </a>
-                </div>
-
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 20px;">
-                    <h4>📈 Resumo de Status</h4>
-                    <p>✅ <strong>Aprovadas:</strong> <?php echo $stats['aprovadas']; ?></p>
-                    <p>⏳ <strong>Pendentes:</strong> <?php echo $stats['pendentes']; ?></p>
-                    <p>❌ <strong>Rejeitadas:</strong> <?php echo $stats['rejeitadas']; ?></p>
-                    <p>📊 <strong>Total:</strong> <?php echo $stats['total_solicitacoes']; ?></p>
-                </div>
-            </div>
-
-            <!-- SEÇÃO 4: Solicitações (ocupa toda a largura) -->
+            <!-- SEÇÃO 3: Solicitações (ocupa toda a largura) -->
             <div class="section section-full">
                 <h2>👥 Solicitações de Participação (<?php echo count($solicitacoes); ?>)</h2>
                 
